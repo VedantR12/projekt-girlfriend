@@ -1,29 +1,44 @@
-from app.services.llm_service import client
 import json
 import re
+from app.services.llm_service import call_llm
 
 
-def extract_live_memory(user_message, bot_reply, persona_name):
+# ──────────────────────────────────────────
+# Live Memory Extraction
+# Called after EVERY chat exchange
+# Learns from active conversations
+# ──────────────────────────────────────────
+
+def extract_live_memory(
+    user_message: str,
+    bot_reply: str,
+    persona_name: str,
+    user_id: str = None
+) -> list:
+    """
+    Extract meaningful long-term memory from a single chat exchange.
+    Returns filtered list of memory objects.
+    """
 
     prompt = f"""
-You are an expert at detecting IMPORTANT long-term memory from conversations.
+You detect IMPORTANT long-term memory from a single conversation exchange.
 
 Target: {persona_name}
 
 RULES:
-- Extract ONLY if it's important
-- Ignore casual chat
-- Ignore small talk
-- Ignore temporary emotions
+- Extract ONLY if it's genuinely important
+- Ignore casual chat, small talk, greetings
+- Ignore temporary emotions ("I'm tired today")
+- Ignore obvious facts ("the sky is blue")
 
 Focus on:
-- plans
-- preferences
-- decisions
-- repeated behavior
-- relationship changes
+- concrete plans or decisions
+- preferences revealed for the first time
+- repeated behaviors being confirmed
+- relationship status changes
+- beliefs or strong opinions expressed
 
-Return ONLY JSON list:
+Return ONLY JSON list (no explanation, no markdown):
 
 [
   {{
@@ -33,37 +48,43 @@ Return ONLY JSON list:
   }}
 ]
 
+If nothing important — return empty list: []
+
 Conversation:
 User: {user_message}
 {persona_name}: {bot_reply}
 """
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}]
-    )
+    try:
+        raw = call_llm(prompt, user_id=user_id, temperature=0.1, use_fast_model=True)
+    except Exception:
+        return []
 
-    raw = response.choices[0].message.content
-
+    # ─── Clean and parse ───
     clean = re.sub(r"```json|```", "", raw)
-
     start = clean.find("[")
     end = clean.rfind("]") + 1
 
-    if start != -1 and end != -1:
-        clean = clean[start:end]
+    if start == -1 or end <= start:
+        return []
+
+    clean = clean[start:end].strip()
 
     try:
         memories = json.loads(clean)
 
-        # 🔥 strict filtering
+        # ─── Strict filter ───
         filtered = [
             m for m in memories
             if m.get("importance", 0) >= 0.7
             and len(m.get("text", "").split()) > 6
+            and not any(w in m.get("text", "").lower() for w in [
+                "seems", "probably", "maybe", "might",
+                "casual", "general", "mentions"
+            ])
         ]
 
         return filtered
 
-    except:
+    except Exception:
         return []

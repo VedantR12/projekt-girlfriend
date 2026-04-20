@@ -1,0 +1,55 @@
+Folder PATH listing for volume ACER
+Volume serial number is 9467-634A
+C:.
+|   .env
+|   .gitignore
+|   requirements.txt
+|   schema.sql
+|   structure.txt
+|   
++---app
+|   |   main.py
+|   |   __init__.py
+|   |   
+|   +---config
+|   |       persona_options.py
+|   |       
+|   +---models
+|   |       enums.py
+|   |       __init__.py
+|   |       
+|   +---routes
+|   |   |   persona.py
+|   |   |   __init__.py
+|   |   |   
+|   |   \---__pycache__
+|   |           persona.cpython-310.pyc
+|   |           __init__.cpython-310.pyc
+|   |           
+|   +---services
+|   |   |   api_key_service.py
+|   |   |   auth_service.py
+|   |   |   chat_service.py
+|   |   |   db.py
+|   |   |   db_memory.py
+|   |   |   live_memory_service.py
+|   |   |   llm_service.py
+|   |   |   memory_service.py
+|   |   |   
+|   |   \---__pycache__
+|   |           api_key_service.cpython-310.pyc
+|   |           db.cpython-310.pyc
+|   |           llm_service.cpython-310.pyc
+|   |           memory_service.cpython-310.pyc
+|   |           
+|   +---utils
+|   |   |   chat_parser.py
+|   |   |   deps.py
+|   |   |   
+|   |   \---__pycache__
+|   |           chat_parser.cpython-310.pyc
+|   |           
+|   \---__pycache__
+|           main.cpython-310.pyc
+|           __init__.cpython-310.pyc
+|           
