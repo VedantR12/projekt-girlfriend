@@ -1,164 +1,50 @@
 import json
 import hashlib
-from enum import Enum
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 
 from app.services.llm_service import generate_persona
 from app.services.memory_service import extract_memories_ai
 from app.utils.chat_parser import parse_chat
-from app.services.chat_cleaner import build_clean_payload
+from app.services.chat_cleaner import build_signal_bundle
 from app.services.db import supabase
 from app.services.db_memory import (
     save_memories, save_persona, get_persona,
-    list_personas, delete_persona, get_memories
+    list_personas, delete_persona
 )
 from app.utils.deps import get_current_user
 
+router = APIRouter(prefix="/persona", tags=["Persona"])
 
-# ──────────────────────────────────────────
-# ENUMS
-# ──────────────────────────────────────────
-
-class RelationshipType(str, Enum):
-    friend = "friend"
-    best_friend = "best_friend"
-    crush = "crush"
-    girlfriend = "girlfriend"
-    ex = "ex"
-    colleague = "colleague"
-
-class InteractionDynamic(str, Enum):
-    balanced = "balanced"
-    dominant_persona = "dominant_persona"
-    dominant_user = "dominant_user"
-    teasing_dynamic = "teasing_dynamic"
-
-class MessageLength(str, Enum):
-    short = "short"
-    medium = "medium"
-    long = "long"
-    mixed = "mixed"
-
-class TypingStyle(str, Enum):
-    clean = "clean"
-    lowercase = "lowercase"
-    broken = "broken"
-    fast_typing = "fast_typing"
-
-class SlangLevel(str, Enum):
-    none = "none"
-    mild = "mild"
-    heavy = "heavy"
-    genz = "genz"
-
-class EmojiUsage(str, Enum):
-    none = "none"
-    rare = "rare"
-    frequent = "frequent"
-    overuse = "overuse"
-
-class DefaultMood(str, Enum):
-    neutral = "neutral"
-    happy = "happy"
-    anxious = "anxious"
-    moody = "moody"
-    playful = "playful"
-
-class AffectionStyle(str, Enum):
-    direct = "direct"
-    subtle = "subtle"
-    teasing = "teasing"
-    avoidant = "avoidant"
-    clingy = "clingy"
-
-class HumorType(str, Enum):
-    sarcastic = "sarcastic"
-    dark = "dark"
-    wholesome = "wholesome"
-    random = "random"
-    none = "none"
-
-class ReplyBehavior(str, Enum):
-    instant = "instant"
-    delayed = "delayed"
-    random = "random"
-    seen_zone = "seen_zone"
-
-class ConversationStyle(str, Enum):
-    question_based = "question_based"
-    statement_based = "statement_based"
-    mixed = "mixed"
-    dry_replies = "dry_replies"
-
-class InitiativeLevel(str, Enum):
-    low = "low"
-    medium = "medium"
-    high = "high"
-
-
-# ──────────────────────────────────────────
-# CONSTANTS
-# ──────────────────────────────────────────
-
-PERSONA_LIMIT = 5  # max personas per user
+PERSONA_LIMIT = 5
 
 
 # ──────────────────────────────────────────
 # HELPERS
 # ──────────────────────────────────────────
 
-def apply_overrides(persona_data: dict, user_inputs: dict) -> dict:
-    core = persona_data.get("persona_core", {})
-    comm = core.get("communication_style", {})
-    emotion = core.get("emotional_model", {})
-    behavior = core.get("behavior_patterns", {})
-    relationship = persona_data.get("relationship_model", {})
-
-    comm["message_length"]      = user_inputs.get("message_length")
-    comm["slang_level"]         = user_inputs.get("slang_level")
-    comm["emoji_usage"]         = user_inputs.get("emoji_usage")
-    comm["typing_style"]        = user_inputs.get("typing_style")
-    emotion["affection_style"]  = user_inputs.get("affection_style")
-    emotion["humor_type"]       = user_inputs.get("humor_type")
-    emotion["emotional_range"]  = user_inputs.get("default_mood")
-    behavior["response_behavior"]  = user_inputs.get("reply_behavior")
-    behavior["conversation_style"] = user_inputs.get("conversation_style")
-    relationship["with_user"]       = user_inputs.get("relationship_type")
-    relationship["interaction_style"] = user_inputs.get("interaction_dynamic")
-
-    persona_data["relationship_model"] = relationship
-    return persona_data
-
-
-def build_user_inputs_fingerprint(persona_name: str, chat_speaker_name: str, user_inputs: dict) -> str:
+def build_fingerprint(persona_name: str, chat_speaker_name: str, relationship_type: str) -> str:
     """
-    Build a deterministic hash from all fields that define a unique persona.
-    Same combo of persona_name + chat_speaker_name + all user_inputs = same hash.
+    Fingerprint based on the 3 user-controlled fields only.
+    Same speaker + same persona name + same relationship = duplicate.
     """
     data = {
-        "persona_name": persona_name,
+        "persona_name":      persona_name,
         "chat_speaker_name": chat_speaker_name,
-        **user_inputs
+        "relationship_type": relationship_type,
     }
-    canonical = json.dumps(data, sort_keys=True)
-    return hashlib.sha256(canonical.encode()).hexdigest()
+    return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 
-def find_duplicate_persona(user_id: str, fingerprint: str) -> dict | None:
-    """
-    Check if a persona with the same fingerprint already exists for this user.
-    Returns the existing persona record or None.
-    """
+def find_duplicate(user_id: str, fingerprint: str) -> dict | None:
     result = supabase.table("personas") \
         .select("id, persona_name, created_at") \
         .eq("user_id", user_id) \
         .eq("fingerprint", fingerprint) \
         .execute()
-
     return result.data[0] if result.data else None
 
 
-def count_user_personas(user_id: str) -> int:
+def count_personas(user_id: str) -> int:
     result = supabase.table("personas") \
         .select("id", count="exact") \
         .eq("user_id", user_id) \
@@ -167,84 +53,66 @@ def count_user_personas(user_id: str) -> int:
 
 
 # ──────────────────────────────────────────
-# ROUTER
-# ──────────────────────────────────────────
-
-router = APIRouter(prefix="/persona", tags=["Persona"])
-
-
-# ──────────────────────────────────────────
 # POST /persona/create
+#
+# User provides only:
+#   - chat.txt file
+#   - chat_speaker_name (exact name as in chat export)
+#   - persona_name (display name)
+#   - relationship_type
+#   - persona_gender
+#   - user_gender
+#
+# Everything else extracted from the chat by LLM.
 # ──────────────────────────────────────────
+
+VALID_RELATIONSHIPS = {
+    "friend", "best_friend", "crush",
+    "girlfriend", "boyfriend", "ex", "colleague"
+}
+
+VALID_GENDERS = {"male", "female", "non-binary"}
+
 
 @router.post("/create")
 async def create_persona(
     file: UploadFile = File(...),
 
-    user_name: str = Form(...),
     chat_speaker_name: str = Form(...),
-    persona_name: str = Form(...),
+    persona_name:      str = Form(...),
+    relationship_type: str = Form(...),
+    persona_gender:    str = Form(...),
+    user_gender:       str = Form(...),
 
-    relationship_type: RelationshipType = Form(...),
-    interaction_dynamic: InteractionDynamic = Form(...),
-    message_length: MessageLength = Form(...),
-    typing_style: TypingStyle = Form(...),
-    slang_level: SlangLevel = Form(...),
-    emoji_usage: EmojiUsage = Form(...),
-    default_mood: DefaultMood = Form(...),
-    affection_style: AffectionStyle = Form(...),
-    humor_type: HumorType = Form(...),
-    reply_behavior: ReplyBehavior = Form(...),
-    conversation_style: ConversationStyle = Form(...),
-    initiative_level: InitiativeLevel = Form(...),
-
-    # Gender context — used to generate natural persona replies
-    persona_gender: str = Form(...),   # "male" | "female" | "non-binary"
-    user_gender: str = Form(...),      # "male" | "female" | "non-binary"
+    # user_name passed so LLM knows who the other person is
+    user_name: str = Form(default="User"),
 
     user_id: str = Depends(get_current_user)
 ):
+    # ── Validate ──
+    if relationship_type not in VALID_RELATIONSHIPS:
+        raise HTTPException(400, f"Invalid relationship_type. Valid: {VALID_RELATIONSHIPS}")
+    if persona_gender not in VALID_GENDERS:
+        raise HTTPException(400, f"Invalid persona_gender. Valid: {VALID_GENDERS}")
+    if user_gender not in VALID_GENDERS:
+        raise HTTPException(400, f"Invalid user_gender. Valid: {VALID_GENDERS}")
 
-    # ─── 1. Persona cap check ───
-    current_count = count_user_personas(user_id)
-    if current_count >= PERSONA_LIMIT:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Persona limit reached ({PERSONA_LIMIT} max). Delete an existing persona to create a new one."
-        )
+    # ── Persona cap ──
+    if count_personas(user_id) >= PERSONA_LIMIT:
+        raise HTTPException(403, f"Persona limit reached ({PERSONA_LIMIT} max). Delete one to continue.")
 
-    # ─── 2. Build user_inputs ───
-    user_inputs = {
-        "relationship_type":   relationship_type.value,
-        "interaction_dynamic": interaction_dynamic.value,
-        "message_length":      message_length.value,
-        "typing_style":        typing_style.value,
-        "slang_level":         slang_level.value,
-        "emoji_usage":         emoji_usage.value,
-        "default_mood":        default_mood.value,
-        "affection_style":     affection_style.value,
-        "humor_type":          humor_type.value,
-        "reply_behavior":      reply_behavior.value,
-        "conversation_style":  conversation_style.value,
-        "initiative_level":    initiative_level.value
-    }
-
-    # ─── 3. Duplicate check ───
-    fingerprint = build_user_inputs_fingerprint(persona_name, chat_speaker_name, user_inputs)
-    existing = find_duplicate_persona(user_id, fingerprint)
-
+    # ── Duplicate check ──
+    fingerprint = build_fingerprint(persona_name, chat_speaker_name, relationship_type)
+    existing = find_duplicate(user_id, fingerprint)
     if existing:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "error": "persona_already_exists",
-                "message": f"A persona with these exact settings already exists.",
-                "existing_persona_id": existing["id"],
-                "created_at": existing["created_at"]
-            }
-        )
+        raise HTTPException(409, {
+            "error": "persona_already_exists",
+            "message": "A persona with this name, speaker, and relationship already exists.",
+            "existing_persona_id": existing["id"],
+            "created_at": existing["created_at"]
+        })
 
-    # ─── 4. Parse + clean chat file ───
+    # ── Parse chat file ──
     content = await file.read()
     try:
         text_data = content.decode("utf-8")
@@ -252,37 +120,31 @@ async def create_persona(
         text_data = content.decode("utf-8", errors="replace")
 
     parsed_chat = parse_chat(text_data)
-
     if not parsed_chat:
-        raise HTTPException(
-            status_code=400,
-            detail="Could not parse chat file. Make sure it's a WhatsApp export (.txt format)."
+        raise HTTPException(400, "Could not parse chat file. Must be a WhatsApp export (.txt).")
+
+    # ── Build signal bundle ──
+    signal_bundle = build_signal_bundle(parsed_chat, chat_speaker_name)
+
+    if signal_bundle["target_signals"] < 10:
+        raise HTTPException(400,
+            f"Only {signal_bundle['target_signals']} signal messages found for '{chat_speaker_name}'. "
+            "Check that the speaker name exactly matches the chat export."
         )
 
-    clean_payload = build_clean_payload(parsed_chat, chat_speaker_name)
-
-    print(f"📊 Chat: {clean_payload['total_messages']} total → "
-          f"{clean_payload['total_signals']} signals → "
-          f"{clean_payload['signal_count']} sent to LLM (after cap)")
-
-    if clean_payload["signal_count"] < 10:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Only {clean_payload['signal_count']} signal messages found. "
-                   f"Check that the speaker name '{chat_speaker_name}' exactly matches the chat export."
-        )
-
-    # ─── 5. Generate persona (from capped clean signals) ───
+    # ── Generate persona ──
     persona_raw = generate_persona(
-        clean_payload=clean_payload,
-        user_name=user_name,
+        signal_bundle=signal_bundle,
         persona_name=chat_speaker_name,
+        user_name=user_name,
+        relationship_type=relationship_type.replace("_", " "),
+        persona_gender=persona_gender,
+        user_gender=user_gender,
         user_id=user_id
     )
 
     try:
         persona_data = json.loads(persona_raw)
-        persona_data = apply_overrides(persona_data, user_inputs)
     except Exception as e:
         persona_data = {
             "error": "Invalid JSON from LLM",
@@ -290,25 +152,25 @@ async def create_persona(
             "details": str(e)
         }
 
+    # ── Attach identity ──
     persona_data["identity"] = {
         "chat_speaker_name": chat_speaker_name,
-        "persona_name": persona_name,
-        "persona_gender": persona_gender,
-        "user_gender": user_gender
+        "persona_name":      persona_name,
+        "persona_gender":    persona_gender,
+        "user_gender":       user_gender,
+        "relationship_type": relationship_type,
     }
-    persona_data["user_overrides"] = user_inputs
-    persona_data["control_strength"] = "strict"
 
-    # ─── 6. Extract memories (from capped signals) ───
+    # ── Extract memories from signal bundle ──
     memories = extract_memories_ai(
-        signal_messages=clean_payload["signal_messages"],
+        signal_messages=signal_bundle["trait_signals"],
         persona_name=chat_speaker_name,
-        behavior_context=clean_payload.get("behavior_context", []),
-        keyword_metadata=clean_payload.get("keyword_metadata", []),
+        behavior_context=signal_bundle.get("filler_tokens", []),
+        keyword_metadata=signal_bundle.get("top_keywords", []),
         user_id=user_id
     )
 
-    # ─── 7. Save persona to DB (with fingerprint) ───
+    # ── Save to DB ──
     result = supabase.table("personas").insert({
         "user_id":      user_id,
         "persona_name": persona_name,
@@ -317,32 +179,23 @@ async def create_persona(
     }).execute()
 
     if not result.data:
-        raise HTTPException(status_code=500, detail="Failed to save persona to database.")
+        raise HTTPException(500, "Failed to save persona to database.")
 
     persona_id = result.data[0]["id"]
 
-    # ─── 8. Save memories to DB ───
     if memories:
         save_memories(user_id=user_id, persona_id=persona_id, memories=memories)
-        print(f"💾 Saved {len(memories)} memories for persona {persona_id}")
-    else:
-        print("⚠️ No memories extracted.")
 
-    unique_speakers = list(set([msg["speaker"] for msg in parsed_chat]))
+    speakers = list(set(m["speaker"] for m in parsed_chat))
 
     return {
-        "persona_id":           persona_id,
-        "total_messages":       clean_payload["total_messages"],
-        "total_signals":        clean_payload["total_signals"],
-        "signal_messages_used": clean_payload["signal_count"],
-        "speakers":             unique_speakers,
-        "persona":              persona_data,
-        "memories_saved":       len(memories),
-        "memories_sample":      memories[:5] if memories else [],
-        "behavior_metadata": {
-            "fillers":       clean_payload.get("behavior_context", [])[:10],
-            "top_keywords":  clean_payload.get("keyword_metadata", [])[:10]
-        }
+        "persona_id":       persona_id,
+        "total_messages":   signal_bundle["total_messages"],
+        "signals_used":     len(signal_bundle["trait_signals"]),
+        "casual_samples":   len(signal_bundle["casual_samples"]),
+        "memories_saved":   len(memories),
+        "speakers":         speakers,
+        "persona":          persona_data,
     }
 
 
@@ -354,8 +207,8 @@ async def create_persona(
 async def list_user_personas(user_id: str = Depends(get_current_user)):
     personas = list_personas(user_id)
     return {
-        "personas": personas,
-        "count": len(personas),
+        "personas":        personas,
+        "count":           len(personas),
         "slots_remaining": max(0, PERSONA_LIMIT - len(personas))
     }
 
@@ -371,13 +224,12 @@ async def get_single_persona(
 ):
     persona = get_persona(persona_id, user_id)
     if not persona:
-        raise HTTPException(status_code=404, detail="Persona not found.")
+        raise HTTPException(404, "Persona not found.")
     return persona
 
 
 # ──────────────────────────────────────────
 # DELETE /persona/{persona_id}
-# Also cleans up memories for that persona
 # ──────────────────────────────────────────
 
 @router.delete("/{persona_id}")
@@ -385,17 +237,16 @@ async def delete_user_persona(
     persona_id: str,
     user_id: str = Depends(get_current_user)
 ):
-    # Verify ownership before delete
     persona = get_persona(persona_id, user_id)
     if not persona:
-        raise HTTPException(status_code=404, detail="Persona not found or not yours.")
+        raise HTTPException(404, "Persona not found or not yours.")
 
     deleted = delete_persona(persona_id, user_id)
     if not deleted:
-        raise HTTPException(status_code=500, detail="Delete failed.")
+        raise HTTPException(500, "Delete failed.")
 
     return {
-        "deleted": True,
+        "deleted":    True,
         "persona_id": persona_id,
-        "message": "Persona and all associated memories deleted."
+        "message":    "Persona and all associated memories deleted."
     }

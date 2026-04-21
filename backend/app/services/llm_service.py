@@ -10,28 +10,14 @@ load_dotenv()
 # ──────────────────────────────────────────
 # GROQ-ONLY LLM LAYER
 #
-# No Ollama. No local model. Groq always.
-#
-# Key priority:
-#   1. User's stored BYOK key  → their tokens, their limit
-#   2. GROQ_DEV_KEY in .env   → your key for dev/testing
-#   3. Nothing                → raise PermissionError
-#
-# Model routing:
-#   generation (persona + memory) → llama-3.3-70b-versatile
-#     - 8192 ctx window
-#     - 500k tokens/day free tier
-#     - fast, good at structured JSON extraction
-#
-#   chat (replies + live memory) → openai/gpt-oss-120b
-#     - 128k ctx window
-#     - 100k tokens/day free tier
-#     - better reasoning, more natural replies
+# use_fast_model=True  → llama-3.3-70b-versatile  (persona/memory gen)
+# use_fast_model=False → llama-3.3-70b-versatile  (chat replies)
+# Both same model — change GROQ_MODEL_CHAT to upgrade chat quality independently
 # ──────────────────────────────────────────
 
 GROQ_DEV_KEY    = os.getenv("GROQ_DEV_KEY", "")
-GROQ_MODEL_GEN  = "llama-3.3-70b-versatile"            # persona + memory generation
-GROQ_MODEL_CHAT = "llama-3.3-70b-versatile"   # chat replies + live memory
+GROQ_MODEL_GEN  = "llama-3.3-70b-versatile"
+GROQ_MODEL_CHAT = "llama-3.3-70b-versatile"
 
 
 def call_llm(
@@ -40,30 +26,18 @@ def call_llm(
     temperature: float = 0.2,
     use_fast_model: bool = False
 ) -> str:
-    """
-    Unified Groq call.
-
-    Key priority: user BYOK → GROQ_DEV_KEY → PermissionError
-
-    use_fast_model=True  → llama-3.3-70b-versatile       (persona/memory generation)
-    use_fast_model=False → openai/gpt-oss-120b (chat replies)
-    """
     model = GROQ_MODEL_GEN if use_fast_model else GROQ_MODEL_CHAT
 
-    # 1. User BYOK
     if user_id:
         user_key = get_api_key(user_id)
         if user_key:
             return _call_groq(prompt, user_key, temperature, model)
 
-    # 2. Dev key
     if GROQ_DEV_KEY:
         return _call_groq(prompt, GROQ_DEV_KEY, temperature, model)
 
-    # 3. Nothing
     raise PermissionError(
-        "No Groq API key found. "
-        "Add GROQ_DEV_KEY to .env or store a key via the API key endpoint."
+        "No Groq API key found. Add GROQ_DEV_KEY to .env or store a key via the API."
     )
 
 
@@ -82,72 +56,108 @@ def _call_groq(prompt: str, api_key: str, temperature: float, model: str) -> str
 
 
 # ──────────────────────────────────────────
-# PERSONA GENERATION  (8b model)
+# PERSONA GENERATION
+# Takes signal_bundle (from chat_cleaner) not clean_payload
+# Produces persona with traits+evidence, style fingerprint, casual samples
 # ──────────────────────────────────────────
 
 def generate_persona(
-    clean_payload: dict,
-    user_name: str,
+    signal_bundle: dict,
     persona_name: str,
+    user_name: str,
+    relationship_type: str,
+    persona_gender: str,
+    user_gender: str,
     user_id: str = None
 ) -> str:
     """
-    Extract structured persona JSON from cleaned chat signals.
-    Uses llama-3.3-70b-versatile — fast, structured output, 8192 ctx.
+    Generate persona JSON from signal bundle.
+
+    signal_bundle keys:
+        trait_signals:  300-400 signal messages (start/mid/end sampled)
+        casual_samples: 30-50 casual messages (hi/hello/reactions)
+        filler_tokens:  top repeated filler words with counts
+        top_keywords:   top meaningful words
+        total_messages: int
     """
 
-    clean_chat       = clean_payload.get("clean_chat", "")
-    behavior_context = clean_payload.get("behavior_context", [])
-    keyword_metadata = clean_payload.get("keyword_metadata", [])
-    signal_count     = clean_payload.get("signal_count", 0)
-    total_messages   = clean_payload.get("total_messages", 0)
+    trait_signals   = signal_bundle.get("trait_signals", [])
+    casual_samples  = signal_bundle.get("casual_samples", [])
+    filler_tokens   = signal_bundle.get("filler_tokens", [])
+    top_keywords    = signal_bundle.get("top_keywords", [])
+    total_messages  = signal_bundle.get("total_messages", 0)
 
-    if not clean_chat:
-        return '{"error": "No signal messages found in chat"}'
+    if not trait_signals:
+        return '{"error": "No signals found in chat"}'
 
-    if behavior_context:
-        filler_lines = [
-            f"  - '{b['token']}': {b['frequency']} (x{b.get('count', '?')})"
-            for b in behavior_context[:10]
-        ]
-        behavior_block = "FILLER TOKENS:\n" + "\n".join(filler_lines)
-    else:
-        behavior_block = "FILLER TOKENS: none"
+    # Format signals as speaker: message
+    signals_text = "\n".join(
+        f"{m['speaker']}: {m['text']}" for m in trait_signals
+    )
 
-    keyword_block = ""
-    if keyword_metadata:
-        top_words = ", ".join([kw["word"] for kw in keyword_metadata[:20]])
-        keyword_block = f"TOP WORDS: {top_words}"
+    casual_text = "\n".join(
+        f"{m['speaker']}: {m['text']}" for m in casual_samples[:30]
+    ) if casual_samples else "none found"
 
-    prompt = f"""You are a forensic behavioral analyst. Extract behavioral patterns from chat data. Return ONLY valid JSON — no explanation, no markdown, no text outside the JSON object.
+    filler_str = ", ".join(
+        f"'{f['token']}' (x{f['count']})" for f in filler_tokens[:10]
+    ) if filler_tokens else "none"
 
-User: {user_name} | Target: {persona_name} | Signals: {signal_count}/{total_messages}
+    keyword_str = ", ".join(
+        kw["word"] for kw in top_keywords[:20]
+    ) if top_keywords else "none"
 
-{behavior_block}
-{keyword_block}
+    prompt = f"""You are extracting a behavioral persona from real WhatsApp chat messages.
+
+Person: {persona_name} ({persona_gender})
+Their relationship with {user_name} ({user_gender}): {relationship_type}
+Total messages analyzed: {total_messages}
+Their filler words: {filler_str}
+Their frequent words: {keyword_str}
+
+TASK: Analyze ONLY {persona_name}'s messages. Extract their personality, communication style, and behavioral patterns.
 
 RULES:
-- Return ONLY the JSON object, nothing else
-- No generic traits (friendly/nice/responsive) — only specific repeated behaviors
-- Every trait needs evidence array with 2+ real message examples
-- evidence must be a JSON array of strings
-- Unknown values → "unknown"
-- common_phrases: only phrases used 3+ times, include frequent fillers from above
+- Return ONLY valid JSON, no explanation, no markdown
+- Every trait MUST include 2-3 real message examples as evidence
+- Evidence must be actual messages from the chat, not paraphrased
+- communication_fingerprint must describe HOW they actually text, not labels
+- casual_replies must be real messages they sent in casual/greeting moments
+- Extract 4-6 personality traits maximum
+- Be specific, not generic ("uses 😭 when overwhelmed" not "emotional")
 
-OUTPUT FORMAT (fill exactly, no extra keys):
+OUTPUT FORMAT:
 {{
   "persona_core": {{
     "name": "{persona_name}",
-    "personality_traits": [{{"trait": "", "evidence": []}}],
-    "communication_style": {{"message_length": "", "emoji_usage": "", "slang_level": "", "tone": "", "typing_style": ""}},
-    "behavior_patterns": {{"common_phrases": [], "response_behavior": "", "conversation_style": ""}},
-    "emotional_model": {{"emotional_range": "", "anger_style": "", "affection_style": "", "humor_type": ""}}
+    "gender": "{persona_gender}",
+    "personality_traits": [
+      {{
+        "trait": "one specific behavior pattern",
+        "evidence": ["actual message 1", "actual message 2", "actual message 3"]
+      }}
+    ],
+    "communication_fingerprint": {{
+      "typical_message": "example of a typical message they send",
+      "emoji_pattern": "describe actual emoji usage with examples or 'never uses emojis'",
+      "language_mix": "describe actual language pattern e.g. 'Hinglish, mostly Hindi words with English phrases'",
+      "message_length": "describe pattern e.g. 'usually 1 sentence, sometimes 3-4 when excited'",
+      "punctuation_style": "describe e.g. 'no punctuation, lowercase, uses ??? for questions'"
+    }},
+    "casual_replies": []
   }},
-  "relationship_model": {{"with_user": "", "interaction_style": "", "power_dynamic": ""}}
+  "relationship_context": {{
+    "type": "{relationship_type}",
+    "dynamic": "describe the actual dynamic visible in chat",
+    "tone_with_user": "describe how they specifically talk to {user_name}"
+  }}
 }}
 
-CHAT DATA:
-{clean_chat}"""
+CASUAL MESSAGES (for greetings and small talk patterns):
+{casual_text}
+
+MAIN CHAT SIGNALS:
+{signals_text}"""
 
     try:
         raw = call_llm(prompt, user_id=user_id, temperature=0.2, use_fast_model=True)
@@ -157,20 +167,8 @@ CHAT DATA:
     return _clean_json_output(raw)
 
 
-# ──────────────────────────────────────────
-# JSON OUTPUT CLEANER
-# ──────────────────────────────────────────
-
 def _clean_json_output(raw: str) -> str:
-    def fix_evidence(text: str) -> str:
-        return re.sub(
-            r'"evidence"\s*:\s*"([^"]+)"\s*,\s*"([^"]+)"',
-            r'"evidence": ["\1", "\2"]',
-            text
-        )
-
     clean = re.sub(r"```json|```", "", raw).strip()
-    clean = fix_evidence(clean)
 
     try:
         return json.dumps(json.loads(clean))
