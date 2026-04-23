@@ -1,8 +1,15 @@
 import json
 import re
 from app.services.llm_service import call_llm
-
 import time
+
+def _strip_prefix(text: str) -> str:
+    """Strip 'SpeakerName: ' prefix if model included it in stored data."""
+    if ": " in text[:50]:
+        parts = text.split(": ", 1)
+        if len(parts[0].strip()) < 40:
+            return parts[1].strip()
+    return text.strip()
 
 
 # ──────────────────────────────────────────
@@ -255,6 +262,10 @@ CHAT:
         if key not in seen_texts:
             seen_texts.add(key)
             deduped.append(m)
+            
+    # Strip any speaker prefix from memory texts
+    for m in deduped:
+        m["text"] = _strip_prefix(m["text"])
 
     print(f"⏱ Memory extraction: {time.time() - start_time:.2f}s")
     print(f"🧠 Memories extracted: {len(deduped)} (from {len(all_memories)} raw)")
