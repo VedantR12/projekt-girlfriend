@@ -126,7 +126,7 @@ STRICT RULES:
 - Return ONLY valid JSON, zero explanation, zero markdown
 - All text fields: MESSAGE TEXT ONLY — never include "SpeakerName: " prefix
 - Every trait needs 3 real message examples as evidence (text only, no prefix)
-- casual_replies: 8-10 actual short messages she sent in casual/greeting moments (text only)
+- casual_replies: 8-10 messages of MAX 6 WORDS each — ONLY greetings/reactions (haa, okay, haaaa, chup, are, thike, accha) — NO opinions, NO feelings, NO sentences containing lagta/chahiye/pata/kyunki/because/feel/think
 - relationship_detail: describe the SPECIFIC dynamic — not generic labels
 - unknown_topics: 3-5 topics that were NEVER discussed in this chat
 - Be specific not generic ("uses 😭 when overwhelmed" not "emotional")
@@ -156,7 +156,7 @@ OUTPUT FORMAT (text fields = message text only, no speaker prefix):
       "punctuation_style": "describe punctuation habits"
     }},
     "typing_quirks": "{quirk_str.replace(chr(10), "; ")}",
-    "casual_replies": ["text only", "text only", "text only"],
+    "casual_replies": ["Haaaa", "Thike", "Are nahi yaar", "Accha suno"],
     "tone_samples": [
       {{
         "trigger": "what the other person said — text only",

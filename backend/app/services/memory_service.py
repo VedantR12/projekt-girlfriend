@@ -1,15 +1,8 @@
 import json
 import re
 from app.services.llm_service import call_llm
-import time
 
-def _strip_prefix(text: str) -> str:
-    """Strip 'SpeakerName: ' prefix if model included it in stored data."""
-    if ": " in text[:50]:
-        parts = text.split(": ", 1)
-        if len(parts[0].strip()) < 40:
-            return parts[1].strip()
-    return text.strip()
+import time
 
 
 # ──────────────────────────────────────────
@@ -71,29 +64,35 @@ def get_relevant_memories(memories: list, user_message: str, top_n: int = 6) -> 
 
 def _build_chunks(signal_messages: list, max_chunks: int = 8) -> list:
     """
-    Splits signal_messages into smart chunks: start, middle, end + spaced.
-    Deduplicates chunks.
+    Recent-heavy chunking: 1 chunk from start, 1 from mid, 5 from recent half.
+    More chunks from recent = more memories extracted from developed personality.
     """
     total = len(signal_messages)
     if total == 0:
         return []
 
     chunks = []
+    chunk_size = 120  # smaller chunks = more focused memories
 
-    # Start, middle, end
-    chunks.append(signal_messages[:150])
+    # 1 chunk from start (context only)
+    chunks.append(signal_messages[:chunk_size])
+
+    # 1 chunk from middle
     mid = total // 2
-    chunks.append(signal_messages[max(mid - 75, 0): mid + 75])
-    chunks.append(signal_messages[-150:])
+    chunks.append(signal_messages[max(mid - chunk_size // 2, 0): mid + chunk_size // 2])
 
-    # Additional spaced
-    step = max(total // max_chunks, 1)
-    for i in range(step, total, step):
-        chunk = signal_messages[i: i + 150]
-        if len(chunk) > 30:
-            chunks.append(chunk)
-        if len(chunks) >= max_chunks:
-            break
+    # 5 chunks from recent 50% — split evenly
+    recent_start = total // 2
+    recent_msgs  = signal_messages[recent_start:]
+    recent_total = len(recent_msgs)
+    if recent_total > 0:
+        step = max(recent_total // 5, 1)
+        for i in range(0, recent_total, step):
+            chunk = recent_msgs[i: i + chunk_size]
+            if len(chunk) > 20:
+                chunks.append(chunk)
+            if len(chunks) >= max_chunks:
+                break
 
     # Deduplicate by first-5-message fingerprint
     unique_chunks = []
@@ -179,42 +178,51 @@ Target person: {persona_name}
 A valid memory MUST:
 - contain a specific real-world detail about {persona_name}
 - be generalized (not an exact sentence copy)
-- be usable and meaningful in a future conversation
-- refer to a concrete event, habit, preference, belief, or behaviour of {persona_name}
+- refer to a concrete event, habit, preference, or behaviour — NOT a momentary emotion
 
-Reject anything generic or about the user (not the persona).
+Reject: generic statements, one-time emotional outbursts, anything about the user not the persona.
 
 --------------------------------------
 
 GOOD MEMORY:
 ✔ "{persona_name} prefers sleeping before midnight"
-✔ "{persona_name} dislikes being judged by others"
 ✔ "{persona_name} often uses sarcasm in conversations"
 ✔ "{persona_name} has mentioned missing their hometown"
+✔ "{persona_name} dislikes unplanned changes to schedules"
 
-BAD MEMORY:
-❌ "12 se pehle sona hai yaad rakhna"
-❌ "Wah, 18 saal ki umar me hi ye haal"
-❌ "User asked about plans"
-❌ "They had a conversation"
+BAD MEMORY (do NOT extract these):
+❌ Dramatic emotional statements said once in a heated moment
+❌ "{persona_name} feels people love her conditionally" — one-time vent, not a pattern
+❌ Opinions that repeat the same theme as another memory already extracted
+❌ Direct sentence copies from chat
+
+--------------------------------------
+
+IMPORTANCE RULES (critical — wrong importance breaks the whole system):
+- habits and preferences: 0.4–0.6
+- recurring behaviors: 0.5–0.6
+- beliefs held consistently: 0.5–0.7
+- one-time events: 0.3–0.4
+- emotional/dramatic statements: MAX 0.4 even if intense
+- NEVER assign importance > 0.7 to opinions or feelings
+- Assign diverse importance values — do not cluster everything at 0.7+
 
 --------------------------------------
 
 Return ONLY valid JSON array.
 
 FORMAT:
-
 [
   {{
     "text": "",
-    "type": "event / belief / opinion / habit / preference / relationship",
-    "importance": 0.0 to 1.0
+    "type": "event / habit / preference / behavior / belief",
+    "importance": 0.0 to 0.7
   }}
 ]
 
 --------------------------------------
 
-Extract 3–8 memories if possible. If nothing meaningful — return [].
+Extract 3–6 DIVERSE memories. Prefer variety over quantity. If nothing meaningful — return [].
 
 CHAT:
 {formatted_chat}
@@ -254,18 +262,16 @@ CHAT:
         except Exception:
             continue
 
-    # Deduplicate by text similarity
+    # Deduplicate + cap importance at 0.7 (prevents emotional memories from dominating)
     seen_texts = set()
     deduped = []
     for m in all_memories:
         key = m["text"][:60].lower().strip()
         if key not in seen_texts:
             seen_texts.add(key)
+            # Hard cap — no memory gets importance > 0.7 regardless of LLM output
+            m["importance"] = min(float(m.get("importance", 0.5)), 0.7)
             deduped.append(m)
-            
-    # Strip any speaker prefix from memory texts
-    for m in deduped:
-        m["text"] = _strip_prefix(m["text"])
 
     print(f"⏱ Memory extraction: {time.time() - start_time:.2f}s")
     print(f"🧠 Memories extracted: {len(deduped)} (from {len(all_memories)} raw)")

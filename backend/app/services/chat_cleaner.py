@@ -62,19 +62,19 @@ WHATSAPP_NOISE = [
 ]
 
 # Signal cap — 300-400 signals across 5 zones
+# Sampling ratio: fewer from start, heavy toward recent end
 SIGNAL_CAP = {
-    "start":     50,
-    "start_mid": 80,
-    "mid":       60,
-    "mid_end":   80,
-    "end":       50,
+    "start":     20,
+    "start_mid": 40,
+    "mid":       50,
+    "mid_end_a": 60,
+    "mid_end_b": 60,
+    "mid_end_c": 50,
+    "end":       40,
 }
 SIGNAL_TOTAL_CAP = sum(SIGNAL_CAP.values())  # 320
 
 CASUAL_CAP = 50
-TONE_SAMPLE_CAP = 5
-QUIRK_SAMPLE_CAP = 30
-
 
 
 # ──────────────────────────────────────────
@@ -122,7 +122,7 @@ def is_signal(text: str) -> bool:
 
 
 # ──────────────────────────────────────────
-# SIGNAL CAPPING — 5-zone sampling
+# SIGNAL CAPPING — 7-zone, recent-heavy sampling
 # ──────────────────────────────────────────
 
 def cap_signals(signals: list) -> list:
@@ -141,17 +141,22 @@ def cap_signals(signals: list) -> list:
                 seen.add(key)
                 result.append(m)
 
-    q1 = total // 4
-    q2 = total // 2
-    q3 = (total * 3) // 4
+    # 7 zones — recent chat (66-100%) gets 4 of 7 zones
+    q1 = total // 6           # 16%
+    q2 = total // 3           # 33%
+    q3 = total // 2           # 50%
+    q4 = (total * 2) // 3     # 66%
+    q5 = (total * 5) // 6     # 83%
 
-    add_slice(signals[:cap["start"]])
-    add_slice(signals[q1: q1 + cap["start_mid"]])
-    add_slice(signals[q2 - cap["mid"] // 2: q2 + cap["mid"] // 2])
-    add_slice(signals[q3 - cap["mid_end"] // 2: q3 + cap["mid_end"] // 2])
-    add_slice(signals[-cap["end"]:])
+    add_slice(signals[:cap["start"]])                                              # 0–16%
+    add_slice(signals[q1: q1 + cap["start_mid"]])                                 # 16–33%
+    add_slice(signals[q2: q2 + cap["mid"]])                                       # 33–50%
+    add_slice(signals[q3: q3 + cap["mid_end_a"]])                                 # 50–66%
+    add_slice(signals[q4: q4 + cap["mid_end_b"]])                                 # 66–83%
+    add_slice(signals[q5 - cap["mid_end_c"] // 2: q5 + cap["mid_end_c"] // 2])   # 75–91%
+    add_slice(signals[-cap["end"]:])                                               # last 40
 
-    print(f"✂️  Signals: {total} → {len(result)}")
+    print(f"✂️  Signals: {total} → {len(result)} (7-zone recent-heavy)")
     return result[:SIGNAL_TOTAL_CAP]
 
 
@@ -206,144 +211,6 @@ def extract_keywords(messages: list, target_person: str, top_n: int = 25) -> lis
     return [{"word": w, "count": c} for w, c in word_count.most_common(top_n)]
 
 
-
-
-# ──────────────────────────────────────────
-# TONE SAMPLE EXTRACTION
-# Real back-and-forth exchanges showing HOW she responds in sequence
-# ──────────────────────────────────────────
-
-def extract_tone_samples(messages: list, target_person: str, max_samples: int = TONE_SAMPLE_CAP) -> list:
-    """
-    Find 3-5 real exchanges: other person says something → persona replies (→ optional follow-up).
-    Sampled from start, mid, end zones so it captures different conversation moods.
-    """
-    samples = []
-    total = len(messages)
-    zone_starts = [0, total // 3, (2 * total) // 3]
-
-    for zone_start in zone_starts:
-        zone = messages[zone_start: min(zone_start + 200, total)]
-
-        for i, msg in enumerate(zone):
-            if target_person.lower() not in msg["speaker"].lower():
-                continue
-            if is_noise(msg["text"]) or len(msg["text"].split()) < 3:
-                continue
-
-            # Find preceding message from the other person
-            prev = None
-            for j in range(i - 1, max(0, i - 3), -1):
-                if target_person.lower() not in zone[j]["speaker"].lower():
-                    if not is_noise(zone[j]["text"]):
-                        prev = zone[j]
-                        break
-
-            if not prev:
-                continue
-
-            # Check for follow-up from persona
-            followup = None
-            if i + 1 < len(zone):
-                nxt = zone[i + 1]
-                if target_person.lower() in nxt["speaker"].lower() and not is_noise(nxt["text"]):
-                    followup = nxt["text"].strip()
-
-            samples.append({
-                "trigger":  prev["text"].strip(),
-                "response": msg["text"].strip(),
-                "followup": followup,
-            })
-
-            if len(samples) >= max_samples:
-                break
-
-        if len(samples) >= max_samples:
-            break
-
-    return samples[:max_samples]
-
-
-# ──────────────────────────────────────────
-# TYPING QUIRKS EXTRACTION
-# Specific idiosyncrasies that make it feel like THIS person
-# ──────────────────────────────────────────
-
-def extract_typing_quirks(messages: list, target_person: str) -> dict:
-    """
-    Analyzes target_person's messages for 6 concrete typing patterns.
-    Returns dict of quirk_name → description string.
-    """
-    target_msgs = [
-        m["text"] for m in messages
-        if target_person.lower() in m["speaker"].lower()
-        and not is_noise(m["text"])
-    ]
-    if not target_msgs:
-        return {}
-
-    total = len(target_msgs)
-    # Sample from start, mid, end
-    sample = (
-        target_msgs[:QUIRK_SAMPLE_CAP]
-        + target_msgs[total // 2: total // 2 + QUIRK_SAMPLE_CAP]
-        + target_msgs[-QUIRK_SAMPLE_CAP:]
-    )
-
-    quirks = {}
-
-    # 1. Question mark style
-    q_counts = Counter()
-    for msg in sample:
-        if "?" in msg:
-            q_counts[msg.count("?")] += 1
-    if q_counts:
-        most_q = q_counts.most_common(1)[0][0]
-        if most_q >= 3:
-            quirks["question_style"] = "uses ??? for questions"
-        elif most_q == 2:
-            quirks["question_style"] = "uses ?? for questions"
-        else:
-            quirks["question_style"] = "uses single ? for questions"
-
-    # 2. Trailing ellipsis
-    if sum(1 for m in sample if "..." in m or ".." in m) > len(sample) * 0.15:
-        quirks["trailing_style"] = "often uses ... to trail off"
-
-    # 3. Capitalization
-    all_lower = sum(1 for m in sample if m == m.lower() and any(c.isalpha() for c in m))
-    if all_lower / max(len(sample), 1) > 0.7:
-        quirks["capitalization"] = "almost always lowercase"
-    elif sum(1 for m in sample if any(c.isupper() for c in m)) / max(len(sample), 1) > 0.5:
-        quirks["capitalization"] = "sometimes uses ALL CAPS for emphasis"
-
-    # 4. Abbreviations actually used
-    all_words = []
-    for msg in sample:
-        all_words.extend(re.findall(r"\b\w{2,5}\b", msg.lower()))
-    freq = Counter(all_words)
-    known = ["mko", "tko", "bc", "ngl", "idk", "tbh", "rn", "lmk", "omg", "ik", "np", "ty", "plz", "pls"]
-    found = [a for a in known if freq.get(a, 0) >= 2]
-    if found:
-        quirks["abbreviations"] = f"uses: {', '.join(found[:6])}"
-
-    # 5. Letter stretching (haaaaaa, noooo)
-    examples = []
-    for msg in sample:
-        for w in re.findall(r"\b\w+\b", msg):
-            if re.search(r"(.)\1{2,}", w):
-                examples.append(w)
-                break
-    if len(examples) > len(sample) * 0.08:
-        quirks["emphasis_style"] = f"stretches letters for emphasis (e.g. {examples[0]})"
-
-    # 6. Sentence ending punctuation
-    no_punct = sum(1 for m in sample if m and m[-1] not in ".!?")
-    if no_punct / max(len(sample), 1) > 0.7:
-        quirks["sentence_ending"] = "rarely ends with punctuation"
-
-    return quirks
-
 # ──────────────────────────────────────────
 # MAIN ENTRY — build_signal_bundle
 # ──────────────────────────────────────────
@@ -380,22 +247,15 @@ def build_signal_bundle(messages: list, target_person: str) -> dict:
     filler_tokens = extract_fillers(messages, target_person)
     top_keywords  = extract_keywords(messages, target_person)
 
-    # New: tone samples + typing quirks
-    tone_samples  = extract_tone_samples(messages, target_person)
-    typing_quirks = extract_typing_quirks(messages, target_person)
-
     print(f"📊 {target_person}: {len(messages)} total | "
           f"{len(signal_msgs)} signals → {len(capped_signals)} capped | "
-          f"{len(casual_msgs)} casual → {len(capped_casual)} capped | "
-          f"{len(tone_samples)} tone samples | {len(typing_quirks)} quirks")
+          f"{len(casual_msgs)} casual → {len(capped_casual)} capped")
 
     return {
-        "trait_signals":  capped_signals,
-        "casual_samples": capped_casual,
-        "tone_samples":   tone_samples,
-        "typing_quirks":  typing_quirks,
-        "filler_tokens":  filler_tokens,
-        "top_keywords":   top_keywords,
-        "total_messages": len(messages),
-        "target_signals": len(signal_msgs),
+        "trait_signals":   capped_signals,
+        "casual_samples":  capped_casual,
+        "filler_tokens":   filler_tokens,
+        "top_keywords":    top_keywords,
+        "total_messages":  len(messages),
+        "target_signals":  len(signal_msgs),
     }

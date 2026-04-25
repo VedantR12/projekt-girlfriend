@@ -79,7 +79,12 @@ def generate_reply(
     fp_block = "\n".join(fp_lines)
 
     # ── Casual replies — 10 samples ──
-    clean_casual = [_strip_prefix(r) for r in casual_replies if r.strip()]
+    # Filter out long/opinion sentences that LLM wrongly stored as casual replies
+    clean_casual = [
+        _strip_prefix(r) for r in casual_replies
+        if r.strip() and len(r.split()) <= 8
+        and not any(w in r.lower() for w in ["lagta", "chahiye", "pata", "kyunki", "because", "feel", "think", "conditionally", "pyaar"])
+    ]
     casual_block = "\n".join(f'  "{r}"' for r in clean_casual[:10])
 
     # ── Tone samples — real conversation flow ──
@@ -111,19 +116,28 @@ def generate_reply(
                 last_persona_reply = _strip_prefix(msg["message"])
                 break
 
-    # Memory — requires strong match (3+ word overlap, or emotional+1 word)
-    # Max 2 memories — prevents flooding the prompt with unrelated context
+    # Memory injection — relevance only, importance field ignored completely
+    # High-importance emotional memories must NOT surface unless directly relevant
     relevant_memories = []
     if memories:
         msg_words = set(user_message.lower().split())
-        is_emo = _is_emotional(user_message)
+        # Remove common stop words so "mujhe", "hai", "ye" don't cause false matches
+        hindi_stop = {"mujhe", "hai", "hain", "toh", "kya", "koi", "nahi", "na",
+                      "aur", "mein", "se", "ka", "ki", "ko", "ne", "pe", "par",
+                      "wo", "yeh", "main", "hun", "tha", "kar", "raha", "rahi",
+                      "kuch", "ye", "bhi", "ab", "aaj", "kal", "the", "a", "an",
+                      "is", "it", "in", "of", "to", "and", "or", "but", "bro", "yaar"}
+        msg_clean = msg_words - hindi_stop
+        if len(msg_clean) < 2:
+            msg_clean = msg_words  # fallback if too many stop words
+
         scored = []
         for m in memories:
             mem_text  = m.get("text", "")
-            mem_words = set(mem_text.lower().split())
-            overlap   = len(msg_words & mem_words)
-            emo_match = is_emo and _is_emotional(mem_text)
-            if overlap >= 3 or (emo_match and overlap >= 1):
+            mem_words = set(mem_text.lower().split()) - hindi_stop
+            overlap   = len(msg_clean & mem_words)
+            # Require 3+ meaningful word overlap — no importance boost
+            if overlap >= 3:
                 scored.append((overlap, m))
         scored.sort(reverse=True, key=lambda x: x[0])
         relevant_memories = [m for _, m in scored[:2]]
@@ -177,8 +191,8 @@ def generate_reply(
 
     # Memory
     if relevant_memories:
-                parts += [
-            "BACKGROUND KNOWLEDGE (you know these FACTS — never repeat these exact sentences. Always rephrase completely. Use only the MEANING, not the words.):",
+        parts += [
+            "BACKGROUND (silent context — NEVER output these sentences, NEVER paraphrase them into your reply, only use to inform your attitude):",
             "\n".join(f"- {m['text']}" for m in relevant_memories),
             "",
         ]
@@ -204,9 +218,10 @@ def generate_reply(
         "RULES:",
         "1. Reply ONLY to the last message — do not introduce new topics",
         "2. Do NOT assume or invent context not in the conversation",
-        "3. Match your texting style from the examples above exactly",
+        "3. Match your texting style from the examples above exactly — use ONLY emojis visible in the examples, not random ones",
         "4. Keep it 1-2 lines unless the message genuinely needs more",
         "5. If message is casual/greeting, reply casually — no topics, no advice, nothing unprompted",
+        "6. Do NOT use the same emoji on every message — vary naturally or skip it",
         "",
         f"{user_name}: {user_message}",
         f"{display_name}:",
