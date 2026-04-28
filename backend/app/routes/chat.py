@@ -128,7 +128,14 @@ async def get_chat_history(
         "persona_id": persona_id,
         "messages": history,
         "count": len(history),
-        "offset": offset
+        "offset": offset,
+        "messages": [
+        {
+            "role": m["sender"],   # map properly
+            "content": m["message"]
+        }
+        for m in history
+    ]
     }
 
 
