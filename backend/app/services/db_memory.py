@@ -38,7 +38,7 @@ def get_persona(persona_id: str, user_id: str) -> dict | None:
 def list_personas(user_id: str) -> list:
     """List all personas for a user."""
     result = supabase.table("personas") \
-        .select("id, persona_name, created_at") \
+        .select("id, persona_name, avatar_url, created_at") \
         .eq("user_id", user_id) \
         .order("created_at", desc=True) \
         .execute()

@@ -1,5 +1,6 @@
 import json
 import hashlib
+from uuid import uuid4
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 
 from app.services.llm_service import generate_persona
@@ -73,6 +74,29 @@ VALID_RELATIONSHIPS = {
 
 VALID_GENDERS = {"male", "female", "non-binary"}
 
+@router.post("/{id}/avatar")
+async def update_avatar(
+    id: str,
+    avatar: UploadFile = File(...),
+    user_id: str = Depends(get_current_user)
+):
+    # check ownership
+    persona = get_persona(id, user_id)
+    if not persona:
+        raise HTTPException(404, "Persona not found")
+
+    file_bytes = await avatar.read()
+    file_path = f"avatars/{uuid4()}.jpg"
+
+    supabase.storage.from_("avatars").upload(file_path, file_bytes)
+    avatar_url = supabase.storage.from_("avatars").get_public_url(file_path)
+
+    supabase.table("personas").update({
+        "avatar_url": avatar_url
+    }).eq("id", id).execute()
+
+    return {"avatar_url": avatar_url}
+
 
 @router.post("/create")
 async def create_persona(
@@ -83,10 +107,8 @@ async def create_persona(
     relationship_type: str = Form(...),
     persona_gender:    str = Form(...),
     user_gender:       str = Form(...),
-
-    # user_name passed so LLM knows who the other person is
     user_name: str = Form(default="User"),
-
+    avatar: UploadFile = File(None),
     user_id: str = Depends(get_current_user)
 ):
     # ── Validate ──
@@ -96,6 +118,14 @@ async def create_persona(
         raise HTTPException(400, f"Invalid persona_gender. Valid: {VALID_GENDERS}")
     if user_gender not in VALID_GENDERS:
         raise HTTPException(400, f"Invalid user_gender. Valid: {VALID_GENDERS}")
+    avatar_url = None
+
+    if avatar:
+        file_bytes = await avatar.read()
+        file_path = f"avatars/{uuid4()}.jpg"
+
+        supabase.storage.from_("avatars").upload(file_path, file_bytes)
+        avatar_url = supabase.storage.from_("avatars").get_public_url(file_path)
 
     # ── Persona cap ──
     if count_personas(user_id) >= PERSONA_LIMIT:
@@ -159,6 +189,7 @@ async def create_persona(
         "persona_gender":    persona_gender,
         "user_gender":       user_gender,
         "relationship_type": relationship_type,
+        "user_name":         user_name 
     }
 
     # ── Extract memories from signal bundle ──
@@ -175,7 +206,8 @@ async def create_persona(
         "user_id":      user_id,
         "persona_name": persona_name,
         "persona_json": persona_data,
-        "fingerprint":  fingerprint
+        "fingerprint":  fingerprint,
+        "avatar_url": avatar_url
     }).execute()
 
     if not result.data:

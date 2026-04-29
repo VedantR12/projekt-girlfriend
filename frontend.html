@@ -9,6 +9,10 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&family=Caveat:wght@400;600&display=swap"
         rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap"
+        rel="stylesheet">
+
     <style>
         :root {
             --rose: #f472b6;
@@ -47,20 +51,15 @@
         html,
         body {
             height: 100%;
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             color: var(--text);
             overflow-x: hidden;
         }
 
         html,
         body {
-            background: radial-gradient(circle at 20% 20%,
-                    rgba(168, 85, 247, 0.15),
-                    transparent 40%),
-                radial-gradient(circle at 80% 30%,
-                    rgba(236, 72, 153, 0.15),
-                    transparent 40%),
-                #0f0f14;
+            background: #0b141a;
+            letter-spacing: -0.01em;
         }
 
         /* ─── BG BLOBS ─── */
@@ -71,10 +70,12 @@
             z-index: 0;
             pointer-events: none;
             background:
-                radial-gradient(ellipse 60% 50% at 10% 20%, rgba(249, 168, 212, 0.30) 0%, transparent 70%),
-                radial-gradient(ellipse 50% 60% at 90% 10%, rgba(196, 181, 253, 0.28) 0%, transparent 70%),
-                radial-gradient(ellipse 45% 55% at 50% 90%, rgba(167, 243, 208, 0.22) 0%, transparent 70%),
-                radial-gradient(ellipse 55% 40% at 80% 70%, rgba(252, 213, 181, 0.25) 0%, transparent 70%);
+                radial-gradient(circle at 15% 20%,
+                    rgba(168, 85, 247, 0.12),
+                    transparent 40%),
+                radial-gradient(circle at 85% 25%,
+                    rgba(236, 72, 153, 0.10),
+                    transparent 45%);
         }
 
         #chat {
@@ -119,11 +120,9 @@
         }
 
         .logo {
-            font-family: 'Playfair Display', serif;
             font-size: 1.5rem;
             font-style: italic;
             color: var(--rose-d);
-            letter-spacing: -0.5px;
         }
 
         .logo span {
@@ -142,7 +141,6 @@
             border-radius: 50px;
             border: none;
             cursor: pointer;
-            font-family: 'DM Sans', sans-serif;
             font-size: 0.88rem;
             font-weight: 500;
             transition: all 0.2s ease;
@@ -203,11 +201,9 @@
             color: var(--rose-d);
             font-weight: 500;
             margin-bottom: 28px;
-            letter-spacing: 0.5px;
         }
 
         .hero-title {
-            font-family: 'Playfair Display', serif;
             font-size: clamp(2.4rem, 6vw, 4rem);
             line-height: 1.15;
             font-weight: 600;
@@ -251,11 +247,31 @@
         .rel-pill {
             padding: 10px 20px;
             border-radius: 50px;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(8px);
             font-size: 0.85rem;
             font-weight: 500;
-            border: 1.5px solid rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             animation: float 4s ease-in-out infinite;
+            background: rgba(255, 255, 255, 0.06);
+            color: #d1d5db;
+        }
+
+        .rel-pill:hover {
+            background: rgba(255, 255, 255, 0.10);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .rel-tag {
+            padding: 6px 12px;
+            border-radius: 999px;
+
+            background: rgba(255, 255, 255, 0.06);
+            color: #9ca3af;
+
+            border: 1px solid rgba(255, 255, 255, 0.08);
+
+            font-size: 0.75rem;
         }
 
         .rel-pill:nth-child(2) {
@@ -290,34 +306,130 @@
             }
         }
 
-        .pill-crush {
-            background: rgba(249, 168, 212, 0.35);
-            color: #be185d;
+        /* ─── Chat Row ─── */
+
+        .chat-list {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-top: 20px;
         }
 
-        .pill-best {
-            background: rgba(196, 181, 253, 0.35);
-            color: #6d28d9;
+        .chat-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+
+            padding: 12px 10px;
+            border-radius: 12px;
+
+            cursor: pointer;
+            transition: background 0.2s;
         }
 
-        .pill-ex {
-            background: rgba(252, 213, 181, 0.35);
-            color: #c2410c;
+        .chat-item:hover {
+            background: rgba(255, 255, 255, 0.05);
         }
 
-        .pill-friend {
-            background: rgba(167, 243, 208, 0.35);
-            color: #065f46;
+        .chat-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #202c33;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            font-size: 1.2rem;
+            flex-shrink: 0;
         }
 
-        .pill-gf {
-            background: rgba(253, 230, 138, 0.35);
-            color: #92400e;
+        .chat-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
-        .pill-col {
-            background: rgba(186, 230, 253, 0.35);
-            color: #075985;
+        .chat-name-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-name {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .chat-time {
+            font-size: 0.72rem;
+            color: #8696a0;
+        }
+
+        .chat-preview {
+            font-size: 0.82rem;
+            color: #8696a0;
+
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* ─── STORY ROW ─── */
+
+        .story-row {
+            display: flex;
+            gap: 18px;
+            overflow-x: auto;
+            padding: 10px 4px 4px;
+            margin-top: 20px;
+
+            scrollbar-width: none;
+        }
+
+        .story-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .story-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 70px;
+            cursor: pointer;
+        }
+
+        .story-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            font-size: 1.6rem;
+
+            background: #202c33;
+
+            /* 🔥 subtle ring */
+            border: 2px solid rgba(255, 255, 255, 0.08);
+
+            transition: all 0.2s ease;
+        }
+
+        .story-item:hover .story-avatar {
+            transform: scale(1.08);
+            border-color: rgba(236, 72, 153, 0.5);
+        }
+
+        .story-name {
+            margin-top: 6px;
+            font-size: 0.75rem;
+            color: var(--sub);
+            text-align: center;
         }
 
         /* ─── AUTH ─── */
@@ -339,7 +451,6 @@
         }
 
         .auth-title {
-            font-family: 'Playfair Display', serif;
             font-size: 1.8rem;
             font-style: italic;
             text-align: center;
@@ -398,7 +509,6 @@
             border-radius: 12px;
             border: 1.5px solid var(--border);
             background: rgba(255, 255, 255, 0.7);
-            font-family: 'DM Sans', sans-serif;
             font-size: 0.95rem;
             color: var(--text);
             outline: none;
@@ -461,13 +571,11 @@
         }
 
         .dash-greeting {
-            font-family: 'Playfair Display', serif;
             font-size: 1.6rem;
             font-style: italic;
         }
 
         .dash-greeting span {
-            font-family: 'Caveat', cursive;
             font-size: 1.8rem;
             color: var(--rose-d);
         }
@@ -501,136 +609,6 @@
             background: var(--border);
         }
 
-        /* persona grid */
-        .persona-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-        }
-
-        .persona-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(16px);
-            border: 1.5px solid rgba(255, 255, 255, 0.8);
-            border-radius: 24px;
-            padding: 26px;
-            cursor: pointer;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-            transition: all 0.25s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .persona-card::before {
-            content: '';
-            position: absolute;
-            top: -30px;
-            right: -30px;
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            opacity: 0.3;
-            transition: opacity 0.3s;
-        }
-
-        .persona-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow);
-        }
-
-        .persona-card:hover::before {
-            opacity: 0.5;
-        }
-
-        .pc-crush::before {
-            background: var(--rose);
-        }
-
-        .pc-best_friend::before {
-            background: var(--lavender);
-        }
-
-        .pc-ex::before {
-            background: var(--peach);
-        }
-
-        .pc-friend::before {
-            background: var(--mint);
-        }
-
-        .pc-girlfriend::before,
-        .pc-boyfriend::before {
-            background: var(--yellow);
-        }
-
-        .pc-colleague::before {
-            background: var(--sky);
-        }
-
-        .pc-avatar {
-            width: 52px;
-            height: 52px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.6rem;
-            margin-bottom: 14px;
-        }
-
-        .pc-name {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.2rem;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .pc-rel {
-            font-size: 0.78rem;
-            font-weight: 500;
-            padding: 3px 12px;
-            border-radius: 50px;
-            display: inline-block;
-            margin-bottom: 14px;
-        }
-
-        .pc-meta {
-            font-size: 0.8rem;
-            color: var(--sub);
-            display: flex;
-            gap: 14px;
-        }
-
-        .pc-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 16px;
-        }
-
-        .pc-actions .btn {
-            flex: 1;
-            text-align: center;
-        }
-
-        .add-card {
-            border: 2px dashed rgba(236, 72, 153, 0.3);
-            background: rgba(249, 168, 212, 0.08);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            min-height: 200px;
-            color: var(--sub);
-            transition: all 0.2s;
-        }
-
-        .add-card:hover {
-            border-color: var(--rose-d);
-            background: rgba(249, 168, 212, 0.15);
-            color: var(--rose-d);
-        }
-
         .add-icon {
             font-size: 2rem;
         }
@@ -654,7 +632,6 @@
         }
 
         .create-title {
-            font-family: 'Playfair Display', serif;
             font-size: 2rem;
             font-style: italic;
             margin-bottom: 8px;
@@ -726,7 +703,6 @@
         }
 
         .form-card h3 {
-            font-family: 'Playfair Display', serif;
             font-size: 1.1rem;
             margin-bottom: 20px;
             color: var(--text);
@@ -757,7 +733,6 @@
             border-radius: 12px;
             border: 1.5px solid var(--border);
             background: rgba(30, 30, 45, 0.6);
-            font-family: 'DM Sans', sans-serif;
             font-size: 0.92rem;
             color: var(--text);
             outline: none;
@@ -803,9 +778,9 @@
         }
 
         .opt-pill.selected {
-            border-color: var(--rose-d);
-            color: var(--rose-d);
-            background: rgba(236, 72, 153, 0.1);
+            border-color: #ec4899;
+            color: #ec4899;
+            background: rgba(236, 72, 153, 0.12);
             font-weight: 500;
         }
 
@@ -917,7 +892,6 @@
         }
 
         .loader-text {
-            font-family: 'Playfair Display', serif;
             font-style: italic;
             font-size: 1.2rem;
             color: var(--sub);
@@ -940,6 +914,23 @@
             }
         }
 
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .avatar-default {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: #2a3942;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         /* ─── CHAT SCREEN ─── */
         #chat {
             flex-direction: column;
@@ -954,6 +945,8 @@
             backdrop-filter: blur(12px);
             background: #202c33;
             border-bottom: 1px solid var(--border);
+            position: relative;
+            z-index: 1000;
         }
 
         .chat-menu {
@@ -969,18 +962,16 @@
         }
 
         .chat-menu-dropdown {
-            position: absolute;
-            top: 32px;
-            right: 0;
+            position: fixed;
+            display: none;
+            top: 60px;
+            right: 16px;
             background: #202c33;
             border-radius: 8px;
             min-width: 160px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-            display: none;
             overflow: hidden;
-            z-index: 999;
-
-
+            z-index: 999999;
             animation: fadeInMenu 0.15s ease;
         }
 
@@ -1036,7 +1027,6 @@
         }
 
         .chat-name {
-            font-family: 'Playfair Display', serif;
             font-size: 1.05rem;
             font-weight: 600;
         }
@@ -1144,7 +1134,7 @@
         .msg-bubble {
             padding: 8px 10px 25px 10px;
             display: inline-block;
-            border-radius: 12px;
+            border-radius: 10px;
             font-size: 0.92rem;
             line-height: 1.55;
             max-width: 75%;
@@ -1182,7 +1172,7 @@
         .msg.user .msg-bubble {
             background: #005c4b;
             color: #e9edef;
-            border-radius: 12px 0px 12px 12px;
+            border-top-right-radius: 0;
         }
 
         .msg.user .msg-bubble::after {
@@ -1202,8 +1192,8 @@
         .msg.persona .msg-bubble {
             background: #202c33;
             color: #e9edef;
-            border-radius: 0px 12px 12px 12px;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+            border-top-left-radius: 0;
         }
 
         .msg.persona .msg-bubble::after {
@@ -1221,7 +1211,7 @@
         }
 
         .msg-time {
-            font-size: 0.7rem;
+            font-size: 0.6rem;
             color: #8696a0;
         }
 
@@ -1277,7 +1267,6 @@
             border-radius: 20px;
             background: #202c33;
             border: none;
-            font-family: 'DM Sans', sans-serif;
             font-size: 0.95rem;
             color: #e9edef;
             outline: none;
@@ -1374,7 +1363,6 @@
         .empty-chat p {
             font-size: 0.95rem;
             font-style: italic;
-            font-family: 'Playfair Display', serif;
         }
 
         /* ─── TOAST ─── */
@@ -1497,13 +1485,36 @@
                         <button class="btn btn-primary btn-xl" onclick="showAuth('signup')">Create a Persona →</button>
                         <button class="btn btn-ghost btn-xl" onclick="showAuth('login')">I have an account</button>
                     </div>
-                    <div class="hero-cards">
-                        <div class="rel-pill pill-crush">💜 Crush</div>
-                        <div class="rel-pill pill-best">🤝 Best Friend</div>
-                        <div class="rel-pill pill-ex">🥀 Ex</div>
-                        <div class="rel-pill pill-friend">😊 Friend</div>
-                        <div class="rel-pill pill-gf">💛 Partner</div>
-                        <div class="rel-pill pill-col">💼 Colleague</div>
+                    <div class="story-row">
+                        <div class="story-item">
+                            <div class="story-avatar">💜</div>
+                            <div class="story-name">Crush</div>
+                        </div>
+
+                        <div class="story-item">
+                            <div class="story-avatar">🤝</div>
+                            <div class="story-name">Best</div>
+                        </div>
+
+                        <div class="story-item">
+                            <div class="story-avatar">🥀</div>
+                            <div class="story-name">Ex</div>
+                        </div>
+
+                        <div class="story-item">
+                            <div class="story-avatar">😊</div>
+                            <div class="story-name">Friend</div>
+                        </div>
+
+                        <div class="story-item">
+                            <div class="story-avatar">💛</div>
+                            <div class="story-name">Partner</div>
+                        </div>
+
+                        <div class="story-item">
+                            <div class="story-avatar">💼</div>
+                            <div class="story-name">Work</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1564,9 +1575,7 @@
                         <span id="slot-label">0/5</span>
                     </div>
                 </div>
-                <div class="persona-grid" id="persona-grid">
-                    <!-- cards injected here -->
-                </div>
+                <div class="chat-list" id="persona-list"></div>
             </div>
         </div>
 
@@ -1605,6 +1614,8 @@
                         <button class="btn btn-primary" onclick="goStep(2)">Next →</button>
                     </div>
                 </div>
+
+                <input type="file" id="change-avatar-input" accept="image/*" style="display:none">
 
                 <!-- STEP 2 — IDENTITY -->
                 <div class="step-panel" id="step-2">
@@ -1647,11 +1658,21 @@
                             <label>Your name (how they call you)</label>
                             <input type="text" id="user-name" placeholder="Your first name" />
                         </div>
+                        <div class="form-field">
+                            <label>Profile Photo (optional)</label>
+
+                            <div class="upload-zone" onclick="document.getElementById('persona-avatar').click()">
+                                <div>📷 Add Profile Photo</div>
+                            </div>
+
+                            <input type="file" id="persona-avatar" accept="image/*" style="display:none">
+                        </div>
                     </div>
                     <div class="step-actions">
                         <button class="btn btn-ghost" onclick="goStep(1)">← Back</button>
                         <button class="btn btn-primary" onclick="goStep(3)">Next →</button>
                     </div>
+
                 </div>
 
                 <!-- STEP 3 — RELATIONSHIP -->
@@ -1677,11 +1698,12 @@
                 <div class="chat-back" onclick="showScreen('dashboard'); loadDashboard()">←</div>
                 <div class="chat-avatar" id="chat-avatar-header">💜</div>
                 <div class="chat-info">
-                    <div class="chat-name" id="chat-persona-name">—</div>
+                    <div class="chat-name" id="chat-persona-name"></div>
                 </div>
                 <div class="chat-menu">
                     ⋮
                     <div class="chat-menu-dropdown" id="chat-menu-dropdown">
+                        <div class="chat-menu-item" onclick="changeAvatar()">Change Photo</div>
                         <div class="chat-menu-item" onclick="deleteCurrentPersona()">Delete Persona</div>
                     </div>
                 </div>
@@ -1703,6 +1725,46 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script>
+
+        async function apiForm(path, formData) {
+            const token = await getToken();  // you already have this
+
+            const res = await fetch(API + path, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                },
+                body: formData
+            });
+
+            if (!res.ok) {
+                const err = await res.text();
+                throw new Error(err);
+            }
+
+            return res.json();
+        }
+
+        function changeAvatar() {
+            document.getElementById('change-avatar-input').click();
+        }
+
+        document.getElementById('change-avatar-input').addEventListener('change', async function () {
+
+            const file = this.files[0];
+            if (!file || !state.activePersona) return;
+
+            const form = new FormData();
+            form.append("avatar", file);
+
+            await apiForm(`/persona/${state.activePersona.id}/avatar`, form);
+
+            showToast("Profile updated ✅", "success");
+
+            loadDashboard();
+            openChat(state.activePersona.id);
+        });
+
         document.addEventListener("DOMContentLoaded", () => {
             const menu = document.querySelector(".chat-menu");
             const dropdown = document.getElementById("chat-menu-dropdown");
@@ -1838,70 +1900,72 @@
             try {
                 const res = await api('/persona/list', 'GET');
                 state.personas = res.personas || [];
-                renderPersonaGrid(state.personas, res.slots_remaining ?? (5 - state.personas.length));
+                renderPersonaList(state.personas);
             } catch (e) {
                 console.error("Persona list failed:", e);
                 state.personas = [];
-                renderPersonaGrid([], 5);
+                renderPersonaList([]);
                 showToast("Failed to load personas. Backend issue.", "error");
             }
         }
 
         const REL_CONFIG = {
-            crush: { emoji: '💜', color: 'pill-crush', label: 'Crush' },
-            best_friend: { emoji: '🤝', color: 'pill-best', label: 'Best Friend' },
-            ex: { emoji: '🥀', color: 'pill-ex', label: 'Ex' },
-            friend: { emoji: '😊', color: 'pill-friend', label: 'Friend' },
-            girlfriend: { emoji: '💛', color: 'pill-gf', label: 'Girlfriend' },
-            boyfriend: { emoji: '💛', color: 'pill-gf', label: 'Boyfriend' },
-            colleague: { emoji: '💼', color: 'pill-col', label: 'Colleague' },
+            crush: { emoji: '💜', label: 'Crush' },
+            best_friend: { emoji: '🤝', label: 'Best Friend' },
+            ex: { emoji: '🥀', label: 'Ex' },
+            friend: { emoji: '😊', label: 'Friend' },
+            girlfriend: { emoji: '💛', label: 'Girlfriend' },
+            boyfriend: { emoji: '💛', label: 'Boyfriend' },
+            colleague: { emoji: '💼', label: 'Colleague' },
         };
 
-        function renderPersonaGrid(personas, slotsRemaining) {
-            const grid = document.getElementById('persona-grid');
-            const dotsEl = document.getElementById('slot-dots');
-            const labelEl = document.getElementById('slot-label');
+        function renderPersonaList(personas) {
+            const list = document.getElementById('persona-list');
+            list.innerHTML = '';
 
-            const count = personas.length;
-            labelEl.textContent = `${count}/5`;
-            dotsEl.innerHTML = '';
-            for (let i = 0; i < 5; i++) {
-                const d = document.createElement('div');
-                d.className = 'slot-dot' + (i >= count ? ' empty' : '');
-                dotsEl.appendChild(d);
-            }
-
-            grid.innerHTML = '';
             personas.forEach(p => {
                 const rel = p.persona_json?.identity?.relationship_type || 'friend';
                 const cfg = REL_CONFIG[rel] || REL_CONFIG.friend;
-                const bgMap = { crush: 'rgba(249,168,212,0.25)', best_friend: 'rgba(196,181,253,0.25)', ex: 'rgba(252,213,181,0.25)', friend: 'rgba(167,243,208,0.25)', girlfriend: 'rgba(253,230,138,0.25)', boyfriend: 'rgba(253,230,138,0.25)', colleague: 'rgba(186,230,253,0.25)' };
-                const fgMap = { crush: '#be185d', best_friend: '#6d28d9', ex: '#c2410c', friend: '#065f46', girlfriend: '#92400e', boyfriend: '#92400e', colleague: '#075985' };
 
-                const card = document.createElement('div');
-                card.className = `persona-card pc-${rel}`;
-                card.innerHTML = `
-      <div class="pc-avatar" style="background:${bgMap[rel] || 'rgba(249,168,212,0.2)'};">${cfg.emoji}</div>
-      <div class="pc-name">${p.persona_name}</div>
-      <div class="pc-rel" style="background:${bgMap[rel] || 'rgba(249,168,212,0.15)'}; color:${fgMap[rel] || '#be185d'};">${cfg.label}</div>
-      <div class="pc-meta">
-        <span>Created ${new Date(p.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
-      </div>
-      <div class="pc-actions">
-        <button class="btn btn-primary btn-sm" onclick="openChat('${p.id}', event)">💬 Chat</button>
-        <button class="btn btn-danger btn-sm" onclick="deletePersona('${p.id}', event)">🗑</button>
-      </div>
-    `;
-                grid.appendChild(card);
+                const lastMsg = "Tap to start chatting...";
+                const time = formatTime(p.updated_at || p.created_at);
+
+                const item = document.createElement('div');
+                item.className = 'chat-item';
+
+                item.innerHTML = `
+            <div class="chat-avatar">
+                ${p.avatar_url
+                        ? `<img src="${p.avatar_url}" class="avatar-img">`
+                        : cfg.emoji
+                    }
+            </div>
+
+            <div class="chat-content">
+                <div class="chat-name-row">
+                    <div class="chat-name">${p.persona_name}</div>
+                    <div class="chat-time">${time}</div>
+                </div>
+
+                <div class="chat-preview">${lastMsg}</div>
+            </div>
+        `;
+
+                item.onclick = () => openChat(p.id);
+
+                list.appendChild(item);
             });
+        }
 
-            if (slotsRemaining > 0) {
-                const add = document.createElement('div');
-                add.className = 'persona-card add-card';
-                add.onclick = () => openCreate();
-                add.innerHTML = `<div class="add-icon">✨</div><div class="add-label">New Persona</div>`;
-                grid.appendChild(add);
-            }
+        function formatTime(ts) {
+            if (!ts) return '';
+
+            const date = new Date(ts);
+
+            return date.toLocaleTimeString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
         }
 
         async function deletePersona(id, e) {
@@ -1988,6 +2052,9 @@
         }
 
         async function submitCreate() {
+
+            console.log("FORM DATA STATE:", state.formData);
+
             if (!state.selectedRel) { showToast('Choose a relationship type.', 'error'); return; }
 
             const form = new FormData();
@@ -1998,6 +2065,12 @@
             form.append('persona_gender', document.getElementById('persona-gender').value);
             form.append('user_gender', document.getElementById('user-gender').value);
             form.append('user_name', document.getElementById('user-name').value.trim() || state.user?.name || 'User');
+
+            const avatarFile = document.getElementById('persona-avatar').files[0];
+
+            if (avatarFile) {
+                form.append("avatar", avatarFile);
+            }
 
             showLoading('Analysing their messages…');
 
@@ -2024,6 +2097,16 @@
             if (!persona) return;
 
             state.activePersona = persona;
+            const avatarEl = document.getElementById("chat-avatar-header");
+
+            if (persona.avatar_url) {
+                avatarEl.innerHTML = `<img src="${persona.avatar_url}" class="avatar-img">`;
+            } else {
+                avatarEl.innerHTML = "👤";
+            }
+
+            document.getElementById("chat-persona-name").textContent = persona.persona_name;
+
             state.chatHistory = []; // reset on open
 
             showScreen('chat');
@@ -2033,8 +2116,6 @@
 
             try {
                 const hist = await api(`/chat/history/${personaId}`, 'GET');
-
-                console.log("FULL OBJECT:", hist.messages);
 
                 if (hist.messages?.length) {
                     state.chatHistory = hist.messages;
