@@ -1,2 +1,3 @@
 [build]
   publish = "frontend"
+  command = "echo 'no build'"
