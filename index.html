@@ -1783,7 +1783,7 @@
         // ══════════════════════════════════════
         //  CONFIG
         // ══════════════════════════════════════
-        const API = 'http://localhost:8000';
+        const API = 'https://projekt-girlfriend.onrender.com';
         const SUPABASE_URL = 'https://piqjezrulfrnuwjubalz.supabase.co';
         const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcWplenJ1bGZybnV3anViYWx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0MDU5NzcsImV4cCI6MjA5MTk4MTk3N30.Usad9cv36s1GxOD6Yu49Myc6Ty8605gWu5b_o7uKHHM';
 
@@ -2399,6 +2399,25 @@
                 showScreen('dashboard');
             }
         })();
+
+        window.addEventListener("DOMContentLoaded", async () => {
+    const { data } = await sb.auth.getSession();
+
+    if (data?.session?.user) {
+        const user = data.session.user;
+
+        state.user = {
+            id: user.id,
+            email: user.email,
+            name: user.user_metadata?.name || user.email.split('@')[0]
+        };
+
+        loadDashboard();
+        showScreen('dashboard');
+    } else {
+        showScreen('landing');
+    }
+});
     </script>
 </body>
 
