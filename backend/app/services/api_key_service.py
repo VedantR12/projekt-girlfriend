@@ -32,12 +32,14 @@ def _get_fernet():
 def encrypt_key(raw_key: str) -> str:
     """Encrypt a raw API key string."""
     f = _get_fernet()
+    print("ENCRYPTING WITH:", ENCRYPTION_KEY)
     return f.encrypt(raw_key.encode()).decode()
 
 
 def decrypt_key(encrypted_key: str) -> str:
     """Decrypt an encrypted API key string."""
     f = _get_fernet()
+    print("USING ENCRYPTION KEY:", ENCRYPTION_KEY)
     return f.decrypt(encrypted_key.encode()).decode()
 
 
