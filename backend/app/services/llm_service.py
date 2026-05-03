@@ -3,7 +3,7 @@ import re
 import json
 from groq import Groq
 from dotenv import load_dotenv
-from app.services.api_key_service import get_api_key
+
 
 load_dotenv()
 
@@ -22,23 +22,17 @@ GROQ_MODEL_CHAT = "llama-3.3-70b-versatile"
 
 def call_llm(
     prompt: str,
-    user_id: str = None,
+    api_key: str,
     temperature: float = 0.2,
     use_fast_model: bool = False
 ) -> str:
+
+    if not api_key:
+        raise PermissionError("NO_API_KEY")
+
     model = GROQ_MODEL_GEN if use_fast_model else GROQ_MODEL_CHAT
 
-    if user_id:
-        user_key = get_api_key(user_id)
-        if user_key:
-            return _call_groq(prompt, user_key, temperature, model)
-
-    if GROQ_DEV_KEY:
-        return _call_groq(prompt, GROQ_DEV_KEY, temperature, model)
-
-    raise PermissionError(
-        "No Groq API key found. Add GROQ_DEV_KEY to .env or store a key via the API."
-    )
+    return _call_groq(prompt, api_key, temperature, model)
 
 
 def _call_groq(prompt: str, api_key: str, temperature: float, model: str) -> str:
@@ -68,7 +62,8 @@ def generate_persona(
     relationship_type: str,
     persona_gender: str,
     user_gender: str,
-    user_id: str = None
+    user_id: str = None,
+    api_key: str = None
 ) -> str:
     """
     Generate persona JSON from signal bundle.
@@ -180,7 +175,12 @@ MAIN CHAT SIGNALS:
 {signals_text}"""
 
     try:
-        raw = call_llm(prompt, user_id=user_id, temperature=0.2, use_fast_model=True)
+        raw = call_llm(
+    prompt,
+    api_key=api_key,
+    temperature=0.2,
+    use_fast_model=True
+)
     except Exception as e:
         return json.dumps({"error": "LLM call failed", "details": str(e)})
 

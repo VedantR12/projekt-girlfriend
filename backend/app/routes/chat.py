@@ -12,6 +12,7 @@ from app.services.db_memory import (
     get_conversation_history
 )
 from app.utils.deps import get_current_user
+from app.services.api_key_service import get_api_key
 
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
@@ -64,6 +65,15 @@ async def send_message(
     # ─── 3. Load recent conversation context (last 10 messages) ───
     context = get_recent_context(body.persona_id, user_id, limit=10)
 
+    # ─── 0. Ensure user has API key ───
+    api_key = get_api_key(user_id)
+
+    if not api_key:
+        raise HTTPException(
+            status_code=403,
+            detail="NO_API_KEY"
+        )
+
     # ─── 4. Generate reply ───
     try:
         reply = generate_reply(
@@ -73,7 +83,8 @@ async def send_message(
             user_name=user_name,
             persona_name=persona_name,
             conversation_context=context,
-            user_id=user_id
+            user_id=user_id,
+            api_key=api_key
         )
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))

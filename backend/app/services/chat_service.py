@@ -30,7 +30,8 @@ def generate_reply(
     user_name: str,
     persona_name: str,
     conversation_context: list = None,
-    user_id: str = None
+    user_id=None,
+    api_key=None
 ) -> str:
 
     # ── Extract persona ──
@@ -230,7 +231,12 @@ def generate_reply(
     prompt = "\n".join(parts)
 
     try:
-        reply = call_llm(prompt, user_id=user_id, temperature=0.65)
+        reply = call_llm(
+    prompt,
+    user_id=user_id,
+    api_key=api_key,
+    temperature=0.65
+)
         reply = reply.strip()
         return _strip_prefix(reply)
     except PermissionError:
