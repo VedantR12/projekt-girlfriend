@@ -48,7 +48,7 @@ def save_api_key(user_id: str, raw_key: str):
     Encrypt and store user's Groq API key.
     Upserts — if key exists, updates it.
     """
-    encrypted = encrypt_key(raw_key)
+    encrypted = str(encrypt_key(raw_key))
 
     # Check if key already exists
     existing = supabase.table("api_keys") \
@@ -77,6 +77,8 @@ def save_api_key(user_id: str, raw_key: str):
     return {"status": "saved"}
 
 
+from cryptography.fernet import InvalidToken
+
 def get_api_key(user_id: str) -> str | None:
     result = supabase.table("api_keys") \
         .select("encrypted_key") \
@@ -88,13 +90,16 @@ def get_api_key(user_id: str) -> str | None:
 
     encrypted = result.data[0]["encrypted_key"]
 
+    # 🔥 FIX: convert Buffer → string
+    if isinstance(encrypted, dict) and "data" in encrypted:
+        encrypted = bytes(encrypted["data"]).decode()
+
     try:
         return decrypt_key(encrypted)
 
     except InvalidToken:
         print("❌ Invalid encryption token — clearing stored key")
 
-        # delete broken key from DB
         supabase.table("api_keys") \
             .delete() \
             .eq("user_id", user_id) \
