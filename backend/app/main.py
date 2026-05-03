@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from app.routes.persona import router as persona_router
 from app.routes.chat import router as chat_router
 from app.services.db import supabase 
+from app.routes.api_key import router as api_key_router
 
 app = FastAPI(title="Projekt Girlfriend API")
 
@@ -21,6 +22,7 @@ app.add_middleware(
 
 app.include_router(persona_router)
 app.include_router(chat_router)
+app.include_router(api_key_router)
 
 @app.get("/")
 def home():
