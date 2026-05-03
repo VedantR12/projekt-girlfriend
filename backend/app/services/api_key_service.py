@@ -1,5 +1,6 @@
 import os
 from cryptography.fernet import Fernet
+from cryptography.fernet import InvalidToken
 from app.services.db import supabase
 from dotenv import load_dotenv
 
@@ -75,10 +76,6 @@ def save_api_key(user_id: str, raw_key: str):
 
 
 def get_api_key(user_id: str) -> str | None:
-    """
-    Fetch and decrypt user's Groq API key.
-    Returns None if no key stored.
-    """
     result = supabase.table("api_keys") \
         .select("encrypted_key") \
         .eq("user_id", user_id) \
@@ -88,8 +85,20 @@ def get_api_key(user_id: str) -> str | None:
         return None
 
     encrypted = result.data[0]["encrypted_key"]
-    return decrypt_key(encrypted)
 
+    try:
+        return decrypt_key(encrypted)
+
+    except InvalidToken:
+        print("❌ Invalid encryption token — clearing stored key")
+
+        # delete broken key from DB
+        supabase.table("api_keys") \
+            .delete() \
+            .eq("user_id", user_id) \
+            .execute()
+
+        return None
 
 def has_api_key(user_id: str) -> bool:
     """Check if user has a stored API key."""
