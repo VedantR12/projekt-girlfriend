@@ -1,5 +1,7 @@
 import re
 from app.services.llm_service import call_llm
+from app.services.api_key_service import get_api_key
+
 
 EMOTIONAL_WORDS = {
     "sad", "cry", "miss", "hurt", "bura", "laga", "lonely",
@@ -231,12 +233,16 @@ def generate_reply(
     prompt = "\n".join(parts)
 
     try:
+        api_key = get_api_key(user_id)
+
+        if not api_key:
+            raise PermissionError("NO_API_KEY")
+        
         reply = call_llm(
-    prompt,
-    user_id=user_id,
-    api_key=api_key,
-    temperature=0.65
-)
+            prompt,
+            api_key,
+            temperature=0.65
+        )
         reply = reply.strip()
         return _strip_prefix(reply)
     except PermissionError:

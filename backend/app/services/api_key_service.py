@@ -3,6 +3,7 @@ from cryptography.fernet import Fernet
 from cryptography.fernet import InvalidToken
 from app.services.db import supabase
 from dotenv import load_dotenv
+import base64
 
 load_dotenv()
 
@@ -32,32 +33,24 @@ def _get_fernet():
 def encrypt_key(raw_key: str) -> str:
     """Encrypt a raw API key string."""
     f = _get_fernet()
-    print("encrypt key:", ENCRYPTION_KEY)
     return f.encrypt(raw_key.encode()).decode()
 
 
 def decrypt_key(encrypted_key: str) -> str:
     """Decrypt an encrypted API key string."""
     f = _get_fernet()
-    print("decrypt key:", ENCRYPTION_KEY)
     return f.decrypt(encrypted_key.encode()).decode()
 
 
 def save_api_key(user_id: str, raw_key: str):
-    """
-    Encrypt and store user's Groq API key.
-    Upserts — if key exists, updates it.
-    """
-    encrypted = str(encrypt_key(raw_key))
+    encrypted = encrypt_key(raw_key)  # already a string
 
-    # Check if key already exists
     existing = supabase.table("api_keys") \
         .select("id") \
         .eq("user_id", user_id) \
         .execute()
 
     if existing.data:
-        # Update existing
         supabase.table("api_keys") \
             .update({
                 "encrypted_key": encrypted,
@@ -66,7 +59,6 @@ def save_api_key(user_id: str, raw_key: str):
             .eq("user_id", user_id) \
             .execute()
     else:
-        # Insert new
         supabase.table("api_keys") \
             .insert({
                 "user_id": user_id,
@@ -76,9 +68,6 @@ def save_api_key(user_id: str, raw_key: str):
 
     return {"status": "saved"}
 
-
-from cryptography.fernet import InvalidToken
-
 def get_api_key(user_id: str) -> str | None:
     result = supabase.table("api_keys") \
         .select("encrypted_key") \
@@ -86,25 +75,26 @@ def get_api_key(user_id: str) -> str | None:
         .execute()
 
     if not result.data:
+        print("❌ No API key found")
         return None
 
     encrypted = result.data[0]["encrypted_key"]
 
-    # 🔥 FIX: convert Buffer → string
+
+    # handle Buffer case
     if isinstance(encrypted, dict) and "data" in encrypted:
         encrypted = bytes(encrypted["data"]).decode()
 
     try:
-        return decrypt_key(encrypted)
+        key = decrypt_key(encrypted)
+        return key
 
     except InvalidToken:
         print("❌ Invalid encryption token — clearing stored key")
-
         supabase.table("api_keys") \
             .delete() \
             .eq("user_id", user_id) \
             .execute()
-
         return None
 
 def has_api_key(user_id: str) -> bool:
