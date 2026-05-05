@@ -165,7 +165,7 @@ async def create_persona(
     # ── Generate persona ──
     persona_raw = generate_persona(
         signal_bundle=signal_bundle,
-        persona_name=chat_speaker_name,
+        persona_name=persona_name,
         user_name=user_name,
         relationship_type=relationship_type.replace("_", " "),
         persona_gender=persona_gender,
@@ -200,7 +200,7 @@ async def create_persona(
     # ── Extract memories from signal bundle ──
     memories = extract_memories_ai(
         signal_messages=signal_bundle["trait_signals"],
-        persona_name=chat_speaker_name,
+        persona_name=persona_name,
         behavior_context=signal_bundle.get("filler_tokens", []),
         keyword_metadata=signal_bundle.get("top_keywords", []),
         user_id=user_id
