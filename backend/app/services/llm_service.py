@@ -47,8 +47,15 @@ def _call_groq(prompt: str, api_key: str, temperature: float, model: str) -> str
         )
         return response.choices[0].message.content or ""
     except Exception as e:
+        error_msg = str(e).lower()
+    
+        if "rate limit" in error_msg or "quota" in error_msg:
+            raise PermissionError("DAILY_LIMIT_EXCEEDED")
+    
+        if "invalid api key" in error_msg or "unauthorized" in error_msg:
+            raise PermissionError("INVALID_API_KEY")
+    
         raise RuntimeError(f"Groq call failed [{model}]: {str(e)}")
-
 
 # ──────────────────────────────────────────
 # PERSONA GENERATION
