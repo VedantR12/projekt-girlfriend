@@ -32,6 +32,3 @@ supabase_anon: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # SERVICE client – used for data operations (bypasses RLS). The backend validates the user via JWT.
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-
-# Optional debug – you can keep these prints while developing
-print("✅ Supabase client initialised – URL:", SUPABASE_URL)

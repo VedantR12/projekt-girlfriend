@@ -3,6 +3,7 @@ import re
 import json
 from groq import Groq
 from dotenv import load_dotenv
+from app.services.api_key_service import get_api_key
 
 
 load_dotenv()
@@ -174,15 +175,22 @@ CASUAL MESSAGES (greeting/small talk patterns):
 MAIN CHAT SIGNALS:
 {signals_text}"""
 
+    if not api_key:
+        api_key = get_api_key(user_id)
+
+    if not api_key:
+        raise RuntimeError("NO_API_KEY: User has not added API key")
+
+
     try:
         raw = call_llm(
     prompt,
-    api_key=api_key,
+    api_key,
     temperature=0.2,
     use_fast_model=True
 )
     except Exception as e:
-        return json.dumps({"error": "LLM call failed", "details": str(e)})
+        raise RuntimeError(f"Persona generation failed: {str(e)}")
 
     return _clean_json_output(raw)
 
@@ -202,4 +210,4 @@ def _clean_json_output(raw: str) -> str:
         except Exception:
             pass
 
-    return json.dumps({"error": "No valid JSON found", "raw": clean[:300]})
+    raise RuntimeError("LLM returned invalid JSON format")

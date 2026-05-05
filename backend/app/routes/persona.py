@@ -176,11 +176,16 @@ async def create_persona(
     try:
         persona_data = json.loads(persona_raw)
     except Exception as e:
-        persona_data = {
-            "error": "Invalid JSON from LLM",
-            "raw_output": persona_raw,
-            "details": str(e)
-        }
+        raise HTTPException(
+            status_code=500,
+            detail=f"Persona generation failed (invalid JSON): {str(e)}"
+        )
+        
+    if "error" in persona_data:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Persona generation failed: {persona_data.get('details', 'Unknown error')}"
+        )
 
     # ── Attach identity ──
     persona_data["identity"] = {
