@@ -57,7 +57,7 @@ async def send_message(
 
     persona_json   = persona["persona_json"]
     persona_name   = persona_json.get("identity", {}).get("persona_name", "Persona")
-    user_name      = persona_json.get("identity", {}).get("chat_speaker_name", "User")
+    user_name      = persona_json.get("identity", {}).get("user_name", "User")
 
     # ─── 2. Load memories (long-term + live combined) ───
     all_memories = get_all_memories(body.persona_id, user_id)

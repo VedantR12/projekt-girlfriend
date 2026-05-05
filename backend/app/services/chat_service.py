@@ -38,7 +38,10 @@ def generate_reply(
 
     # ── Extract persona ──
     identity       = persona.get("identity", {})
-    display_name   = identity.get("persona_name", persona_name)
+    display_name = persona.get("persona_core", {}).get("name") \
+    or identity.get("chat_speaker_name") \
+    or identity.get("persona_name") \
+    or persona_name
     persona_gender = identity.get("persona_gender", "person")
     user_gender    = identity.get("user_gender", "person")
 
