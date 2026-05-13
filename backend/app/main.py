@@ -3,10 +3,9 @@ from app.routes.persona import router as persona_router
 from app.routes.chat import router as chat_router
 from app.services.db import supabase 
 from app.routes.api_key import router as api_key_router
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Projekt Girlfriend API")
-
-from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,21 +28,25 @@ def home():
 
 @app.get("/health")
 def health():
-    """
-    Used by Render to check if service is alive.
-    Also pings Supabase to keep it active.
-    """
+    return {"status": "ok"}
+
+@app.get("/keepalive")
+def keepalive():
+
+    response = {
+        "server": "alive",
+        "database": "unknown"
+    }
+
     try:
-        # 🔥 lightweight query (fast + cheap)
         res = supabase.table("api_keys").select("id").limit(1).execute()
 
-        return {
-            "status": "ok",
-            "supabase": "connected" if res.data is not None else "unknown"
-        }
+        response["database"] = (
+            "connected" if res.data is not None else "unknown"
+        )
 
     except Exception as e:
-        return {
-            "status": "error",
-            "supabase": str(e)
-        }
+        print("Keepalive error:", e)
+        response["database"] = "disconnected"
+
+    return response
